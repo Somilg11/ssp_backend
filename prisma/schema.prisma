@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AdRequest {
+  id           String   @id @default(uuid())
+  publisherId  String
+  adSlotId     String
+  geo          String
+  device       String
+  time         DateTime
+  bids         Bid[]
+  winnerDspId  String?
+  winningBid   Float?
+
+  winnerDsp    DSP?     @relation(fields: [winnerDspId], references: [id])
+}
+
+model Bid {
+  id          String   @id @default(uuid())
+  adRequest   AdRequest @relation(fields: [adRequestId], references: [id])
+  adRequestId String
+
+  dsp         DSP       @relation(fields: [dspId], references: [id])
+  dspId       String
+
+  bidPrice    Float
+  createdAt   DateTime  @default(now())
+}
+
+model DSP {
+  id         String      @id @default(uuid())
+  name       String
+  isActive   Boolean     @default(true)
+  bidRules   BidRule[]   // Link to dynamic bidding logic
+  creatives  Creative[]
+  targets    Targeting[]
+  bids       Bid[]
+
+  AdRequest AdRequest[]
+}
+
+model BidRule {
+  id         String   @id @default(uuid())
+  dsp        DSP      @relation(fields: [dspId], references: [id])
+  dspId      String
+
+  geo        String
+  device     String
+  bidPrice   Float
+}
+
+model Creative {
+  id         String   @id @default(uuid())
+  dsp        DSP      @relation(fields: [dspId], references: [id])
+  dspId      String
+
+  imageUrl   String
+  clickUrl   String
+}
+
+model Targeting {
+  id         String   @id @default(uuid())
+  dsp        DSP      @relation(fields: [dspId], references: [id])
+  dspId      String
+
+  geo        String
+  device     String
+}
