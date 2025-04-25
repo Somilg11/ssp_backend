@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../prisma/client';
+import { DSP } from '@prisma/client';
+
 
 export const getAnalytics = async (_req: Request, res: Response) => {
   try {
@@ -19,36 +21,29 @@ export const getAnalytics = async (_req: Request, res: Response) => {
     });
 
     // Calculate win rates and average CPM for each DSP
-    const data = await Promise.all(
-      winRates.map(async (dsp) => {
-        // Count how many times each DSP was the winner
-        const wins = await prisma.adRequest.count({
-          where: {
-            winnerDspId: dsp.id,
-          },
-        });
+    // Inside map:
+const data = await Promise.all(
+  winRates.map(async (dsp: DSP & { bids: any[], _count: { bids: number } }) => {
+    const wins = await prisma.adRequest.count({
+      where: { winnerDspId: dsp.id },
+    });
 
-        // Calculate the average CPM for each DSP
-        const avgCPMResult = await prisma.bid.aggregate({
-          where: {
-            dspId: dsp.id,
-          },
-          _avg: {
-            bidPrice: true,
-          },
-        });
+    const avgCPMResult = await prisma.bid.aggregate({
+      where: { dspId: dsp.id },
+      _avg: { bidPrice: true },
+    });
 
-        // Calculate win rate and set average CPM to 0 if no bids exist
-        const winRate = (wins / (dsp._count.bids || 1)) * 100;
-        const avgCPM = avgCPMResult._avg.bidPrice ?? 0;
+    const winRate = (wins / (dsp._count.bids || 1)) * 100;
+    const avgCPM = avgCPMResult._avg.bidPrice ?? 0;
 
-        return {
-          dsp: dsp.name,
-          winRate: parseFloat(winRate.toFixed(2)), // Formatting to 2 decimal places
-          avgCPM: parseFloat(avgCPM.toFixed(2)), // Formatting to 2 decimal places
-        };
-      })
-    );
+    return {
+      dsp: dsp.name,
+      winRate: parseFloat(winRate.toFixed(2)),
+      avgCPM: parseFloat(avgCPM.toFixed(2)),
+    };
+  })
+);
+
 
     // Sending the response
     res.json({ totalRequests, dspStats: data });
